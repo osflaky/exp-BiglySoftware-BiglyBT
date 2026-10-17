@@ -1,0 +1,182 @@
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+    <artifactId>biglybt-ui</artifactId>
+    <packaging>jar</packaging>
+    <name>BiglyBT - UI</name>
+
+    <parent>
+        <groupId>com.biglybt</groupId>
+        <artifactId>biglybt-parent</artifactId>
+        <version>3.4.0.1-SNAPSHOT</version>
+    </parent>
+
+    <dependencies>
+        <dependency>
+            <groupId>com.biglybt</groupId>
+            <artifactId>biglybt-core</artifactId>
+        </dependency>
+    </dependencies>
+
+    <build>
+        <!-- TODO shade plugin! (shade core, common cli but not SWT)-->
+        <sourceDirectory>src</sourceDirectory>
+        <finalName>BiglyBT</finalName>
+        <resources>
+            <resource>
+                <directory>src</directory>
+                <excludes>
+                    <exclude>**/*.java</exclude>
+                    <exclude>**/*.class</exclude>
+                    <exclude>**/.editorconfig</exclude>
+                </excludes>
+            </resource>
+        </resources>
+        <plugins>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-jar-plugin</artifactId>
+                <configuration>
+                    <archive>
+                        <manifest>
+                            <addClasspath>true</addClasspath>
+                            <mainClass>com.biglybt.ui.Main</mainClass>
+                            <addDefaultImplementationEntries>true</addDefaultImplementationEntries>
+                        </manifest>
+                        <manifestEntries>
+                            <Class-Path>. swt.jar commons-cli.jar</Class-Path>
+                        </manifestEntries>
+                    </archive>
+                </configuration>
+            </plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-shade-plugin</artifactId> <!-- need to run CLEAN before executing this !  -->
+                <executions>
+                    <execution>
+                        <phase>package</phase>
+                        <goals>
+                            <goal>shade</goal>
+                        </goals>
+                        <configuration>
+                            <dependencyReducedPomLocation>${project.build.directory}/dependency-reduced-pom.xml
+                            </dependencyReducedPomLocation>
+                            <artifactSet>
+                                <excludes>
+                                    <exclude>org.eclipse.swt:org.eclipse.swt.win32.win32.x86</exclude>
+                                    <exclude>org.eclipse.swt:org.eclipse.swt.cocoa.macosx.x86_64</exclude>
+                                    <exclude>org.eclipse.swt:org.eclipse.swt.gtk.linux.x86_64</exclude>
+                                    <exclude>commons-cli:commons-cli</exclude>
+                                </excludes>
+                            </artifactSet>
+                            <transformers><!-- to avoid having code in the jar (safety net)-->
+                                <transformer
+                                    implementation="org.apache.maven.plugins.shade.resource.DontIncludeResourceTransformer">
+                                    <resource>.java</resource>
+                                </transformer>
+                                <transformer
+                                    implementation="org.apache.maven.plugins.shade.resource.ManifestResourceTransformer">
+                                    <manifestEntries>
+                                        <Main-Class>com.biglybt.ui.Main</Main-Class>
+                                        <Class-Path>. swt.jar commons-cli.jar</Class-Path>
+                                    </manifestEntries>
+                                </transformer>
+                            </transformers>
+                            <filters>
+                                <filter>
+                                    <artifact>com.biglybt:biglybt-core</artifact>
+                                    <excludes>
+                                        <exclude>META-INF/MANIFEST.MF</exclude>
+                                        <exclude>META-INF/takari/export-package</exclude>
+                                    </excludes>
+                                </filter>
+                                <filter>
+                                    <artifact>com.biglybt:biglybt-ui</artifact>
+                                    <excludes>
+                                        <exclude>META-INF/MANIFEST.MF</exclude>
+                                        <exclude>META-INF/takari/export-package</exclude>
+                                    </excludes>
+                                </filter>
+                            </filters>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+        </plugins>
+    </build>
+
+    <profiles>
+        <profile>
+            <id>no-swt</id>
+            <build>
+                <plugins>
+                    <plugin>
+                        <artifactId>maven-antrun-plugin</artifactId>
+                        <executions>
+                            <execution>
+                                <id>remove-swt-ui-resources</id>
+                                <phase>process-resources</phase>
+                                <configuration>
+                                    <target>
+                                        <delete dir="src/com/biglybt/ui/swt"/>
+                                        <delete dir="src/com/biglybt/ui/swing"/>
+                                        <delete dir="src/com/biglybt/ui/images"/>
+                                        <delete dir="src/com/biglybt/ui/icons"/>
+                                        <delete dir="src/com/biglybt/ui/skin"/>
+                                        <delete dir="src/eclipse/swt"/>
+                                    </target>
+                                </configuration>
+                                <goals>
+                                    <goal>run</goal>
+                                </goals>
+                            </execution>
+                        </executions>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
+        <profile>
+            <id>plugin-api</id>
+            <build>
+                <plugins>
+                    <plugin>
+                        <artifactId>maven-antrun-plugin</artifactId>
+                        <executions>
+                            <execution>
+                                <phase>package</phase>
+                                <configuration>
+                                    <tasks>
+                                        <patternset id="pluginapi.inc">
+                                            <include name="com/biglybt/pif/**"/>
+                                            <include name="com/biglybt/ui/swt/pif/**"/>
+                                        </patternset>
+                                        <jar
+                                            destfile="${project.build.directory}/BiglyBT-${project.version}-pluginapi.jar"
+                                            level="9">
+                                            <fileset dir="${project.basedir}/../core/target/classes">
+                                                <patternset refid="pluginapi.inc"/>
+                                            </fileset>
+                                            <fileset dir="${project.build.directory}/classes">
+                                                <patternset refid="pluginapi.inc"/>
+                                            </fileset>
+
+                                            <fileset dir="${project.basedir}/../core/src">
+                                                <patternset refid="pluginapi.inc"/>
+                                            </fileset>
+                                            <fileset dir="${project.basedir}/src">
+                                                <patternset refid="pluginapi.inc"/>
+                                            </fileset>
+                                        </jar>
+                                    </tasks>
+                                </configuration>
+                                <goals>
+                                    <goal>run</goal>
+                                </goals>
+                            </execution>
+                        </executions>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
+    </profiles>
+</project>
