@@ -1,0 +1,46 @@
+name: Java CI with Maven
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ${{ matrix.runner }}
+
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+        - os: macos-latest
+          java-version: 17
+          arch: arm64
+          runner: macos-latest
+          expander_leg: macos-latest-17-arm64
+    steps:
+    - uses: actions/checkout@v4
+    - name: Set up JDK
+      uses: actions/setup-java@v4
+      with:
+        java-version: ${{ matrix.java-version }}
+        distribution: 'temurin'
+        # No vendor ships a native JDK 8 for Windows on ARM64, so this leg uses the x64
+        # Temurin 8 build. It runs on the windows-11-arm runner under Windows x64 emulation.
+        # An empty value keeps setup-java's default, the runner's own architecture.
+        architecture: ${{ (matrix.os == 'windows-latest' && matrix.arch == 
+          'arm64' && matrix.java-version == 8) && 'x64' || '' }}
+        cache: maven
+    - name: Package with Maven
+      id: maven_package
+      run: mvn package --file pom.xml
+#   - name: Stage JAR file artifact
+#     run: mkdir staging && cp uis/target/BiglyBT.jar staging/
+#     if: steps.maven_package.outcome == 'success'
+#   - name: Publish artifact
+#     if: steps.maven_package.outcome == 'success'
+#     uses: actions/upload-artifact@v3
+#     with:
+#       name: BiglyBT_${{ runner.os }}_JDK_${{ matrix.java-version }}
+#       path: staging
+#
+    name: build [${{ matrix.expander_leg }}]
+    timeout-minutes: 150
